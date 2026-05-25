@@ -10,7 +10,12 @@ import json
 import copy
 import asyncio
 from typing import List, Dict, Optional, Any
-from astrbot.api import logger
+
+try:
+    from nonebot import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 
 
 class AsyncDataManager:

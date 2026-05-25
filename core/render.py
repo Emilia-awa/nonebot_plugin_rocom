@@ -14,7 +14,12 @@ import uuid
 import tempfile
 import jinja2
 from typing import Dict, Any, Optional
-from astrbot.api import logger
+
+try:
+    from nonebot import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 
 
 class Renderer:

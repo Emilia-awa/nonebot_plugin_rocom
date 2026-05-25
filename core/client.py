@@ -10,7 +10,12 @@ WeGame + Rocom HTTP API 客户端
 import asyncio
 import httpx
 from typing import Optional, Dict, Any, List
-from astrbot.api import logger
+
+try:
+    from nonebot import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 
 
 class RocomClient:
@@ -18,7 +23,7 @@ class RocomClient:
 
     LOGIN_PROVIDER = "rocom"
     CLIENT_TYPE = "bot"
-    CLIENT_ID = "astrbot"
+    CLIENT_ID = "nonebot"
 
     def __init__(
         self,
