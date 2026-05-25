@@ -3,7 +3,7 @@
 # 🏰 nonebot\_plugin\_rocom
 # 由于前端正在构建，正式发布前端前可使用测试key，加群等待申请key， 群号：[1097809141](https://qm.qq.com/q/8SuHC3siIM) 
 # 测试key：sk-ff14f964051a5c966564e29b5bd3a768
-# 本插件由astrbo_plugin\_rocomt移植
+# 本插件由astrbot_plugin\_rocomt移植
 ### *WeGame 洛克王国数据查询*
 
 <img src="https://github.com/user-attachments/assets/446759b3-c9d8-4752-800c-acf47d55e70f" width="400" alt="LOGO">
