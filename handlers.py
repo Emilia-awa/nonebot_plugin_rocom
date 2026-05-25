@@ -411,7 +411,7 @@ async def bind_list_cmd(bot: Bot, event: MessageEvent):
         "subtitle": f"共找到 {len(bindings)} 个有效绑定账号",
         "bindings": bind_items,
         "commandHint": "💡 /洛克切换 <序号> 切换主账号 | /洛克解绑 <序号> 移除绑定",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
 
     img_url = await _renderer().render_html("render/bind-list/index.html", data)
@@ -782,7 +782,7 @@ def _build_player_search_render_data(payload: Dict, uid: str) -> Dict:
         "showSignature": bool(signature),
         "sections": curated_sections,
         "commandHint": "💡 /洛克玩家 <UID>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
 
 
@@ -860,7 +860,7 @@ async def profile_cmd(bot: Bot, event: MessageEvent):
         "fallbackPetImage": f"{{{{_res_path}}}}img/roco_icon.png",
         "scoreText": ev.get("score", "0.0"),
         "commandHint": "💡 /洛克背包 <筛选> <页码> | /洛克战绩 <页码>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
         "radarPolygons": ["130,30 230,130 130,230 30,130", "130,55 205,130 130,205 55,130", "130,80 180,130 130,180 80,130"],
         "radarAxes": [{"x": 130, "y": 30}, {"x": 230, "y": 130}, {"x": 130, "y": 230}, {"x": 30, "y": 130}],
         "centerX": 130, "centerY": 130,
@@ -1007,7 +1007,7 @@ async def battle_record_cmd(bot: Bot, event: MessageEvent, args: Message = Comma
         "currentPage": page_no, "totalPages": 1,
         "battles": parsed_battles,
         "commandHint": "💡 /洛克战绩 <页码> | 默认第1页",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
 
     img_url = await _renderer().render_html("render/record/index.html", data)
@@ -1085,7 +1085,7 @@ async def package_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg(
         ],
         "currentPage": page_no, "totalPages": total_pages, "pageSize": 10,
         "commandHint": "💡 /洛克背包 <全部/异色/了不起/炫彩> <页码>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
         "fallbackPetImage": f"{{{{_res_path}}}}img/roco_icon.png",
         "pets": pets_list, "emptySlots": list(range(empty_count)),
     }
@@ -1756,7 +1756,7 @@ async def shop_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
         "summaryCards": [{"label": "商店 ID", "value": shop_id}],
         "sections": [], "detailItems": [],
         "commandHint": "💡 /洛克商店 <shop_id>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
     img_url = await _renderer().render_html("render/ingame-shop/index.html", data)
     if img_url:
@@ -1814,7 +1814,7 @@ async def lineup_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg()
         "category": category or "热门推荐", "lineups": processed_lineups,
         "page_no": res.get("page_no", 1), "total_pages": res.get("total_pages", 1),
         "commandHint": f"💡 /洛克阵容 <分类> <页码>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
         "fallbackPetImage": f"{{{{_res_path}}}}img/roco_icon.png",
     }
     img_url = await _renderer().render_html("render/lineup/index.html", data)
@@ -1877,6 +1877,7 @@ async def lineup_detail_cmd(bot: Bot, event: MessageEvent, args: Message = Comma
             "likes": target_lineup.get("likes", 0), "lineup_code": lineup_id,
         },
         "fallbackPetImage": f"{{{{_res_path}}}}img/roco_icon.png",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
     img_url = await _renderer().render_html("render/lineup-detail/index.html", data)
     if img_url:
@@ -1928,7 +1929,7 @@ async def exchange_hall_cmd(bot: Bot, event: MessageEvent, args: Message = Comma
         "filterLabel": "全部", "posts": posts,
         "currentPage": page_no, "totalPages": res.get("total_pages", 1),
         "commandHint": "💡 /洛克交换大厅 <页码>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
     img_url = await _renderer().render_html("render/exchange-hall/index.html", data)
     if img_url:
@@ -1979,7 +1980,7 @@ async def friendship_cmd(bot: Bot, event: MessageEvent, args: Message = CommandA
         "resultCode": _stringify_inspect_value(result.get("error_code", 0)),
         "resultDesc": "当前接口只返回 status 字段。",
         "commandHint": "💡 /洛克好友关系 <id1,id2>",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
     img_url = await _renderer().render_html("render/friendship/index.html", data)
     if img_url:
@@ -2054,7 +2055,7 @@ async def student_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg(
         "stateResult": state_result.get("error_message") or "WG_COMM_SUCC",
         "perksResult": perks_result.get("error_message") or "WG_COMM_SUCC",
         "commandHint": "💡 /洛克学生 [area] [account_type]",
-        "copyright": "AstrBot & WeGame Locke Kingdom Plugin",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
     }
     img_url = await _renderer().render_html("render/student/index.html", data)
     if img_url:
@@ -2388,7 +2389,7 @@ async def search_eggs_cmd(bot: Bot, event: MessageEvent, args: Message = Command
             await asyncio.sleep(0.2)
         data = _egg_searcher().build_search_data_from_api(backend_detail, compatible_by_group)
         data["commandHint"] = "💡 数据来自后端图鉴"
-        data["copyright"] = "AstrBot & WeGame Locke Kingdom Plugin"
+        data["copyright"] = "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot"
         img_url = await _renderer().render_html("render/searcheggs/index.html", data)
         if img_url:
             await search_eggs_matcher.finish(MessageSegment.image(_file_uri(img_url)))
@@ -2423,7 +2424,7 @@ async def search_eggs_cmd(bot: Bot, event: MessageEvent, args: Message = Command
     try:
         data = _egg_searcher().build_search_data(pet)
         data["commandHint"] = "💡 /洛克查蛋 <名称> | /洛克配种 <父> <母>"
-        data["copyright"] = "AstrBot & WeGame Locke Kingdom Plugin"
+        data["copyright"] = "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot"
         img_url = await _renderer().render_html("render/searcheggs/index.html", data)
         if img_url:
             if hint_prefix:
@@ -2507,7 +2508,7 @@ async def breeding_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg
     try:
         data = _egg_searcher().build_pair_data(mother, father)
         data["commandHint"] = "💡 默认前父后母，孵蛋结果跟随母体"
-        data["copyright"] = "AstrBot & WeGame Locke Kingdom Plugin"
+        data["copyright"] = "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot"
         img_url = await _renderer().render_html("render/searcheggs/pair.html", data)
         if img_url:
             await breeding_matcher.finish(MessageSegment.image(_file_uri(img_url)))
