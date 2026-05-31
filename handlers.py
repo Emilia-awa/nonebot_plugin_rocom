@@ -119,10 +119,11 @@ async def rocom_help_impl(matcher):
                 {"cmd": "洛克公告 [页码]", "desc": "查询洛克王国公告列表"},
                 {"cmd": "洛克公告详情 <公告ID>", "desc": "查看指定公告详情"},
                 {"cmd": "洛克公告最新", "desc": "查看最新一条公告"},
+                {"cmd": "洛克活动日历", "desc": "查询活动日历"},
                 {"cmd": "订阅洛克公告", "desc": "订阅新公告推送"},
                 {"cmd": "取消订阅洛克公告", "desc": "关闭新公告推送"},
                 {"cmd": "洛克商店 <shop_id>", "desc": "查询商店信息"},
-                {"cmd": "洛克玩家 <UID>", "desc": "查询玩家基础信息"},
+                {"cmd": "洛克玩家 [UID]", "desc": "查询玩家基础信息"},
                 {"cmd": "洛克家园 [UID]", "desc": "查询家园菜园、守卫和室内精灵"},
                 {"cmd": "订阅家园菜园 [UID]", "desc": "订阅菜园成熟提醒"},
                 {"cmd": "订阅家园灵感 [UID]", "desc": "订阅灵感完成提醒"},
@@ -817,7 +818,15 @@ async def profile_cmd(bot: Bot, event: MessageEvent):
     cl = coll_res if isinstance(coll_res, dict) else {}
     bo = bo_res if isinstance(bo_res, dict) else {}
 
-    player_search_res = await _client().ingame_player_search(role.get("id", "")) if role.get("id") else None
+    player_search_res = (
+        await _client().ingame_player_search(
+            role.get("id", ""),
+            fw_token=fw_token,
+            user_identifier=user_identifier,
+        )
+        if role.get("id")
+        else None
+    )
     player_search_data = _parse_ingame_player_payload(player_search_res, str(role.get("id", ""))) if player_search_res else None
     profile_signature = _player_signature_text(player_search_data) if player_search_data else ""
     profile_head_tags = []
@@ -1310,13 +1319,14 @@ player_search_matcher = on_command("洛克玩家", priority=10, block=True)
 
 @player_search_matcher.handle()
 async def player_search_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
-    uid = args.extract_plain_text().strip()
-    if not uid:
-        await player_search_matcher.finish("请提供玩家 UID。用法：/洛克玩家 <UID>")
-    res = await _client().ingame_player_search(uid)
+    uid_input = args.extract_plain_text().strip()
+    uid, fw_token, user_identifier = await _resolve_ingame_identity(event, uid_input)
+    if not uid and not fw_token:
+        await player_search_matcher.finish("请提供玩家 UID，或先完成绑定后使用 /洛克玩家。")
+    res = await _client().ingame_player_search(uid, fw_token=fw_token, user_identifier=user_identifier)
     if not res:
         await player_search_matcher.finish(f"玩家搜索失败：{_client().get_last_error()}")
-    data = _build_player_search_render_data(res, uid)
+    data = _build_player_search_render_data(res, uid or "当前绑定")
     img_url = await _renderer().render_html("render/player-search/index.html", data)
     if img_url:
         await player_search_matcher.finish(MessageSegment.image(_file_uri(img_url)))
@@ -1387,26 +1397,50 @@ def _build_announcement_list_render_data(res):
             "author": ((item.get("author") or {}).get("nickname") if isinstance(item.get("author"), dict) else "") or "洛克王国：世界",
             "isStick": bool(item.get("isStick")),
         })
+    page = (res or {}).get("page", 1)
+    total_text = (res or {}).get("total") or (res or {}).get("count") or "未知"
     return {
         "title": "洛克王国公告",
-        "subtitle": f"第 {(res or {}).get('page', 1)} 页 · 共 {len(cards)} 条",
+        "subtitle": f"第 {page} 页 · 本页 {len(cards)} 条",
         "cards": cards,
+        "listHeader": "洛克王国公告",
+        "listSubtitle": f"共 {total_text} 条公告，本页显示 {len(cards)} 条",
+        "list": [
+            {
+                "index": item["index"],
+                "id": item["id"],
+                "title": item["title"],
+                "timeStr": item["time"],
+                "coverUrl": item["cover"],
+                "summary": item["summary"],
+                "author": item["author"],
+                "isStick": item["isStick"],
+            }
+            for item in cards
+        ],
         "has_more": bool((res or {}).get("has_more")),
         "next_page": (res or {}).get("next_page"),
         "commandHint": "💡 /洛克公告 <页码> | /洛克公告详情 <公告ID> | /洛克公告最新",
+        "footerLine1": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
+        "pageWidth": 680,
     }
 
 
 def _build_announcement_detail_render_data(item):
     item = item or {}
     content = item.get("content") if isinstance(item.get("content"), dict) else {}
+    caption_html = content.get("text") or item.get("summary") or "该公告暂无正文。"
     return {
         "title": item.get("title", "洛克王国公告"),
         "summary": item.get("summary") or "",
         "cover": item.get("cover") or "",
+        "coverUrl": item.get("cover") or "",
         "time": item.get("publishAt") or item.get("published_at") or item.get("createdAt") or "",
+        "timeLabel": "发布时间：",
+        "timeStr": item.get("publishAt") or item.get("published_at") or item.get("createdAt") or "",
         "author": ((item.get("author") or {}).get("nickname") if isinstance(item.get("author"), dict) else "") or "洛克王国：世界",
         "content_html": content.get("text") or "",
+        "captionHtml": caption_html,
         "images": _announcement_images(item),
         "stats": [
             {"label": "浏览", "value": item.get("viewCount", 0)},
@@ -1414,6 +1448,8 @@ def _build_announcement_detail_render_data(item):
             {"label": "分享", "value": item.get("shareCount", 0)},
         ],
         "commandHint": "💡 /订阅洛克公告 可订阅新公告推送",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
+        "pageWidth": 760,
     }
 
 
@@ -1428,7 +1464,7 @@ async def announcement_cmd(bot: Bot, event: MessageEvent, args: Message = Comman
     if not res:
         await announcement_matcher.finish(f"获取公告列表失败：{_client().get_last_error()}")
     data = _build_announcement_list_render_data(res)
-    img_url = await _renderer().render_html("render/announcement/list.html", data, {"device_scale_factor": 1.5, "viewport_width": 1100, "viewport_height": 1200})
+    img_url = await _renderer().render_html("render/announcement/list.html", data, {"device_scale_factor": 1.5, "viewport_width": 680, "viewport_height": 1200})
     if img_url:
         await announcement_matcher.finish(MessageSegment.image(_file_uri(img_url)))
     else:
@@ -1446,9 +1482,9 @@ async def announcement_detail_cmd(bot: Bot, event: MessageEvent, args: Message =
         await announcement_detail_matcher.finish("请提供公告 ID。用法：/洛克公告详情 <公告ID>")
     res = await _client().get_announcement_detail(thread_id)
     if not res:
-        await announcement_detail_matcher.finish(f"获取公告详情失败：{_client().get_last_error()}")
+        await announcement_detail_matcher.finish(f"获取公告详情失败：{_client().get_last_error()}\n请注意公告 ID 是否正确。")
     data = _build_announcement_detail_render_data(res)
-    img_url = await _renderer().render_html("render/announcement/detail.html", data, {"device_scale_factor": 1.5, "viewport_width": 1100, "viewport_height": 1200})
+    img_url = await _renderer().render_html("render/announcement/detail.html", data, {"device_scale_factor": 1.5, "viewport_width": 760, "viewport_height": 1200})
     if img_url:
         await announcement_detail_matcher.finish(MessageSegment.image(_file_uri(img_url)))
     else:
@@ -1465,11 +1501,227 @@ async def announcement_latest_cmd(bot: Bot, event: MessageEvent):
         await announcement_latest_matcher.finish(f"获取最新公告失败：{_client().get_last_error()}")
     detail = await _client().get_announcement_detail(_announcement_id(res)) or res
     data = _build_announcement_detail_render_data(detail)
-    img_url = await _renderer().render_html("render/announcement/detail.html", data, {"device_scale_factor": 1.5, "viewport_width": 1100, "viewport_height": 1200})
+    img_url = await _renderer().render_html("render/announcement/detail.html", data, {"device_scale_factor": 1.5, "viewport_width": 760, "viewport_height": 1200})
     if img_url:
         await announcement_latest_matcher.finish(MessageSegment.image(_file_uri(img_url)))
     else:
         await announcement_latest_matcher.finish(f"{data['title']}\n{data.get('summary') or '该公告暂无摘要。'}")
+
+
+# ─── 洛克活动日历 ─────────────────────────────────────────
+
+def _activity_ts(value, fallback_date="", end_of_day=False):
+    try:
+        raw = int(float(value))
+        if raw > 10_000_000_000:
+            raw = raw // 1000
+        if raw > 0:
+            return raw
+    except (TypeError, ValueError):
+        pass
+    text = str(value or fallback_date or "").strip()
+    if not text:
+        return 0
+    formats = (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+    )
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(text, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=_cn_tz())
+            if fmt == "%Y-%m-%d" and end_of_day:
+                dt = dt.replace(hour=23, minute=59, second=59)
+            return int(dt.timestamp())
+        except ValueError:
+            continue
+    return 0
+
+
+def _activity_time_text(ts, with_time=False):
+    if not ts:
+        return "--"
+    fmt = "%m.%d %H:%M" if with_time else "%m.%d"
+    return datetime.fromtimestamp(ts, tz=_cn_tz()).strftime(fmt)
+
+
+def _activity_rewards_text(act):
+    names = []
+    for key in ("get_props", "get_extra_props", "get_pets"):
+        value = act.get(key)
+        if not isinstance(value, list):
+            continue
+        for item in value[:4]:
+            if isinstance(item, dict):
+                name = item.get("name") or item.get("goods_name") or item.get("pet_name") or item.get("title")
+                if name:
+                    names.append(str(name))
+            elif item:
+                names.append(str(item))
+    return "、".join(names[:6]) if names else "暂无奖励信息"
+
+
+def _extract_activity_items(res):
+    payload = res or {}
+    source = []
+    for key in ("activityCalendar", "calendar", "otherActivities", "activities", "list", "items"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            source = value
+            break
+    if not source and isinstance(payload.get("data"), dict):
+        return _extract_activity_items(payload.get("data"))
+    now_ts = int(time.time())
+    result = []
+    for act in source:
+        if not isinstance(act, dict) or act.get("is_deleted"):
+            continue
+        start_ts = _activity_ts(
+            act.get("start_time") or act.get("startAt") or act.get("start_at") or act.get("start_ts"),
+            act.get("start_date") or "",
+        )
+        end_ts = _activity_ts(
+            act.get("end_time") or act.get("endAt") or act.get("end_at") or act.get("end_ts"),
+            act.get("end_date") or "",
+            end_of_day=True,
+        )
+        is_unlimited = bool(act.get("is_unlimited"))
+        if not start_ts and not end_ts and not is_unlimited:
+            continue
+        if is_unlimited and not end_ts:
+            end_ts = start_ts + 365 * 86400 if start_ts else now_ts + 365 * 86400
+        if not start_ts:
+            start_ts = now_ts
+        if not end_ts or end_ts <= start_ts:
+            end_ts = start_ts + 86400
+
+        if now_ts < start_ts:
+            status_text = "未开始"
+            status_class = "upcoming"
+        elif now_ts > end_ts and not is_unlimited:
+            status_text = "已结束"
+            status_class = "ended"
+        else:
+            status_text = "进行中" if not is_unlimited else "常驻"
+            status_class = "active" if not is_unlimited else "permanent"
+
+        result.append({
+            "name": str(act.get("name") or act.get("title") or "未命名活动"),
+            "desc": str(act.get("description") or act.get("desc") or "活动"),
+            "cover": str(act.get("cover_url") or act.get("cover") or act.get("pic") or ""),
+            "start_ts": start_ts,
+            "end_ts": end_ts,
+            "start": _activity_time_text(start_ts, with_time=True),
+            "end": _activity_time_text(end_ts, with_time=True),
+            "statusText": status_text,
+            "statusClass": status_class,
+            "is_perm": is_unlimited or (end_ts - start_ts >= 300 * 86400),
+            "rewards": _activity_rewards_text(act),
+            "sort": int(act.get("sort") or 999),
+        })
+    return sorted(result, key=lambda x: (x["is_perm"], x["start_ts"], x["sort"]))
+
+
+def _build_activity_calendar_render_data(res):
+    items = _extract_activity_items(res)
+    now = datetime.now(_cn_tz())
+    now_ts = int(now.timestamp())
+    today_midnight = datetime.combine(now.date(), datetime.min.time(), tzinfo=_cn_tz())
+    min_ts = int(today_midnight.timestamp()) - 10 * 86400
+    max_ts = int(today_midnight.timestamp()) + 50 * 86400
+    total_duration = max(max_ts - min_ts, 1)
+
+    normal_items = []
+    permanent_items = []
+    key_dates = set()
+    for item in items:
+        left_pct = (item["start_ts"] - min_ts) / total_duration * 100
+        right_pct = (item["end_ts"] - min_ts) / total_duration * 100
+        if item["is_perm"]:
+            right_pct = 100
+        left_pct = max(0, min(100, left_pct))
+        right_pct = max(0, min(100, right_pct))
+        width_pct = max(12.5, right_pct - left_pct)
+        if left_pct + width_pct > 100:
+            left_pct = max(0, 100 - width_pct)
+        item["left_pct"] = round(left_pct, 3)
+        item["width_pct"] = round(width_pct, 3)
+        item["hide_start"] = item["start_ts"] < min_ts
+        if item["is_perm"]:
+            permanent_items.append(item)
+        else:
+            normal_items.append(item)
+            if min_ts <= item["start_ts"] <= max_ts:
+                key_dates.add(item["start_ts"])
+
+    def pack_lanes(source):
+        lanes = []
+        for item in source:
+            placed = False
+            for lane in lanes:
+                if item["start_ts"] >= lane[-1]["end_ts"] + 86400:
+                    lane.append(item)
+                    placed = True
+                    break
+            if not placed:
+                lanes.append([item])
+        return lanes
+
+    lanes = pack_lanes(normal_items) + pack_lanes(permanent_items)
+    axis_dates = []
+    last_ts = 0
+    for ts in sorted(key_dates):
+        if ts - last_ts < 4 * 86400:
+            continue
+        last_ts = ts
+        axis_dates.append({
+            "label": _activity_time_text(ts),
+            "left_pct": round((ts - min_ts) / total_duration * 100, 3),
+        })
+
+    now_pct = (now_ts - min_ts) / total_duration * 100
+    now_line = (
+        {"label": "TODAY", "left_pct": round(now_pct, 3)}
+        if 0 <= now_pct <= 100
+        else None
+    )
+
+    return {
+        "title": "洛克活动日历",
+        "subtitle": f"显示 {now.strftime('%m.%d')} 前 10 天至后 50 天活动",
+        "lanes": lanes,
+        "axis_dates": axis_dates,
+        "now_line": now_line,
+        "empty": not bool(items),
+        "commandHint": "💡 /洛克活动日历",
+        "copyright": "NoneBot2 Roco Kingdom Data Plugin | Emilia@盐巴bot",
+    }
+
+
+activity_calendar_matcher = on_command("洛克活动日历", aliases={"洛克活动", "洛克日历"}, priority=10, block=True)
+
+
+@activity_calendar_matcher.handle()
+async def activity_calendar_cmd(bot: Bot, event: MessageEvent):
+    res = await _client().get_activities_info()
+    if not res:
+        await activity_calendar_matcher.finish(f"获取活动日历失败：{_client().get_last_error()}")
+    data = _build_activity_calendar_render_data(res)
+    if data.get("empty"):
+        await activity_calendar_matcher.finish("当前没有可展示的洛克王国活动。")
+    img_url = await _renderer().render_html(
+        "render/activity-calendar/index.html", data,
+        {"device_scale_factor": 1.0, "viewport_width": 2200, "viewport_height": 900},
+    )
+    if img_url:
+        await activity_calendar_matcher.finish(MessageSegment.image(_file_uri(img_url)))
+    else:
+        names = [item["name"] for lane in data.get("lanes", []) for item in lane][:10]
+        await activity_calendar_matcher.finish("活动日历：\n" + "\n".join(names))
 
 
 # ─── 洛克家园 ───────────────────────────────────────────────
@@ -1722,15 +1974,30 @@ async def _resolve_home_uid(event: MessageEvent, uid=""):
     return str((binding or {}).get("role_id", "") or "")
 
 
+async def _resolve_ingame_identity(event: MessageEvent, uid: str = "") -> tuple:
+    uid = str(uid or "").strip()
+    user_identifier = _get_user_identifier(event)
+    if uid:
+        return uid, "", user_identifier
+    binding = await _user_mgr().get_primary_binding(_user_id(event))
+    if not binding:
+        return "", "", user_identifier
+    return (
+        str(binding.get("role_id", "") or ""),
+        str(binding.get("framework_token", "") or ""),
+        user_identifier,
+    )
+
+
 @home_matcher.handle()
 async def home_cmd(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
-    uid = await _resolve_home_uid(event, args.extract_plain_text().strip())
-    if not uid:
+    uid, fw_token, user_identifier = await _resolve_ingame_identity(event, args.extract_plain_text().strip())
+    if not uid and not fw_token:
         await home_matcher.finish("请提供玩家 UID，或先完成绑定后使用 /洛克家园。")
-    res = await _client().ingame_home_info(uid)
+    res = await _client().ingame_home_info(uid, fw_token=fw_token, user_identifier=user_identifier)
     if not res:
         await home_matcher.finish(f"家园查询失败：{_client().get_last_error()}")
-    data = _build_home_render_data(res, uid)
+    data = _build_home_render_data(res, uid or "当前绑定")
     img_url = await _renderer().render_html("render/home/index.html", data, {"device_scale_factor": 3, "viewport_width": 1500, "viewport_height": 1200})
     if img_url:
         await home_matcher.finish(MessageSegment.image(_file_uri(img_url)))

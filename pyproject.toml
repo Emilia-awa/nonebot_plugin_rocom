@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-rocom"
-version = "3.2.0"
+version = "3.3.0"
 description = "洛克王国 NoneBot2 插件 - 数据查询、登录绑定、远行商人订阅等多功能"
 authors = [
     { name = "bvzrays & 熵增项目组" },

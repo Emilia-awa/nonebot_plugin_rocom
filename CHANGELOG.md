@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.3.0 (2026-05-31)
+
+### 新增
+- 新增「洛克活动日历」功能，支持甘特图式活动时间线可视化展示。
+- 活动日历命令：`/洛克活动日历`（别名：`/洛克活动`、`/洛克日历`）。
+- `ingame_player_search` 和 `ingame_home_info` 支持无 UID 模式，自动使用当前绑定账号查询。
+- 公告模板全面重设计，采用更紧凑的卡片式布局。
+
+### 优化
+- 统一 ingame 查询架构：新增 `_ingame_queued_query` 和 `_poll_ingame_task` 方法，减少代码重复。
+- `get_ingame_task` 支持传入 `fw_token` 和 `user_identifier`，适配 token 认证场景。
+- 公告列表和详情渲染视口宽度适配新模板。
+- 公告详情查询失败时提示检查公告 ID 是否正确。
+
+### 同步上游
+- 同步 `astrbot_plugin_rocom` v3.3.0 功能更新（活动日历、ingame 查询重构、公告模板重设计）。
+
 ## v3.2.0 (2026-05-24)
 
 ### 新增
