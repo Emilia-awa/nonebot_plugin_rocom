@@ -46,6 +46,110 @@ state = types.SimpleNamespace(
 )
 
 
+def _ensure_playwright_browser():
+    """确保 Playwright Chromium 浏览器已安装"""
+    import sys
+    import subprocess
+    import glob
+
+    def _check_browser_installed():
+        """通过文件系统检测 Chromium 浏览器是否已安装"""
+        try:
+            # Playwright 浏览器缓存目录
+            # 优先使用环境变量，否则使用默认路径
+            browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+            if not browsers_path:
+                if sys.platform == "win32":
+                    browsers_path = os.path.join(os.path.expanduser("~"), "AppData", "Local", "ms-playwright")
+                else:
+                    browsers_path = os.path.join(os.path.expanduser("~"), ".cache", "ms-playwright")
+
+            if not os.path.isdir(browsers_path):
+                return False
+
+            # 查找 chromium-* 目录
+            chromium_dirs = glob.glob(os.path.join(browsers_path, "chromium-*"))
+            if not chromium_dirs:
+                return False
+
+            # 检查是否存在 chrome 可执行文件
+            for d in chromium_dirs:
+                if sys.platform == "win32":
+                    chrome_path = os.path.join(d, "chrome-win", "chrome.exe")
+                else:
+                    chrome_path = os.path.join(d, "chrome-linux", "chrome")
+                if os.path.isfile(chrome_path):
+                    return True
+
+            return False
+        except Exception:
+            return False
+
+    if _check_browser_installed():
+        logger.info("[Rocom] Playwright Chromium 浏览器已就绪")
+        return
+
+    logger.info("[Rocom] Playwright 浏览器未安装或不可用，正在自动安装...")
+
+    python_exec = sys.executable
+    logger.info(f"[Rocom] 使用 Python 解释器: {python_exec}")
+
+    # Linux 系统先安装系统依赖
+    if sys.platform == "linux":
+        logger.info("[Rocom] 检测到 Linux 系统，尝试安装系统依赖...")
+        try:
+            subprocess.run(
+                [python_exec, "-m", "playwright", "install-deps", "chromium"],
+                timeout=300,
+            )
+        except Exception as dep_err:
+            logger.warning(f"[Rocom] 安装系统依赖异常: {dep_err}")
+
+    # 尝试安装 Chromium，优先使用国内镜像源
+    download_hosts = [
+        "https://cdn.npmmirror.com/binaries/playwright",  # npmmirror 镜像（优先）
+        None,  # 默认源（回退）
+    ]
+
+    for host in download_hosts:
+        try:
+            env = os.environ.copy()
+            if host:
+                env["PLAYWRIGHT_DOWNLOAD_HOST"] = host
+                logger.info(f"[Rocom] 使用镜像源安装 Chromium: {host}")
+            else:
+                logger.info("[Rocom] 使用默认源安装 Chromium...")
+
+            result = subprocess.run(
+                [python_exec, "-m", "playwright", "install", "chromium"],
+                env=env,
+                timeout=300,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                logger.info("[Rocom] Playwright Chromium 浏览器安装完成")
+                return
+            else:
+                stderr_msg = (result.stderr or "").strip()
+                stdout_msg = (result.stdout or "").strip()
+                err_detail = stderr_msg or stdout_msg
+                if host:
+                    logger.warning(f"[Rocom] 镜像源安装失败: {err_detail}")
+                else:
+                    logger.warning(f"[Rocom] 默认源安装失败: {err_detail}")
+        except subprocess.TimeoutExpired:
+            logger.warning(f"[Rocom] 安装超时 (source: {host or 'default'})")
+        except Exception as e:
+            logger.warning(f"[Rocom] 安装异常 (source: {host or 'default'}): {e}")
+
+    # 所有源都失败了
+    logger.error("[Rocom] Playwright Chromium 浏览器自动安装全部失败！")
+    logger.error("[Rocom] 请手动执行以下命令:")
+    logger.error("[Rocom]   PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright python -m playwright install chromium")
+    logger.error("[Rocom]   或直接执行: python -m playwright install chromium")
+
+
 def init_globals(config: PluginConfig):
     """初始化所有全局实例"""
     from .core.client import RocomClient
@@ -57,6 +161,8 @@ def init_globals(config: PluginConfig):
     )
     from .core.render import Renderer
     from .core.egg_service import EggService
+
+    _ensure_playwright_browser()
 
     state.plugin_config = config
     state.client = RocomClient(
